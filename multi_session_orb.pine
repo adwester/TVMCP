@@ -26,15 +26,38 @@ nypm_new = in_nypm and not in_nypm[1]
 lon_new  = in_lon  and not in_lon[1]
 asia_new = in_asia and not in_asia[1]
 
-// ── State vars ────────────────────────────────────────────────────────────────
-var float nyam_h = na, var float nyam_l = na, var int nyam_c = 0, var bool nyam_rdy = false, var bool nyam_traded = false
-var float nypm_h = na, var float nypm_l = na, var int nypm_c = 0, var bool nypm_rdy = false, var bool nypm_traded = false
-var float lon_h  = na, var float lon_l  = na, var int lon_c  = 0, var bool lon_rdy  = false, var bool lon_traded  = false
-var float asia_h = na, var float asia_l = na, var int asia_c = 0, var bool asia_rdy = false, var bool asia_traded = false
+// ── State vars — one per line (comma-grouped declarations break persistence) ──
+var float nyam_h      = na
+var float nyam_l      = na
+var int   nyam_c      = 0
+var bool  nyam_rdy    = false
+var bool  nyam_traded = false
+
+var float nypm_h      = na
+var float nypm_l      = na
+var int   nypm_c      = 0
+var bool  nypm_rdy    = false
+var bool  nypm_traded = false
+
+var float lon_h       = na
+var float lon_l       = na
+var int   lon_c       = 0
+var bool  lon_rdy     = false
+var bool  lon_traded  = false
+
+var float asia_h      = na
+var float asia_l      = na
+var int   asia_c      = 0
+var bool  asia_rdy    = false
+var bool  asia_traded = false
 
 // ── Range building ────────────────────────────────────────────────────────────
 if nyam_new
-    nyam_h := high, nyam_l := low, nyam_c := 1, nyam_rdy := false, nyam_traded := false
+    nyam_h      := high
+    nyam_l      := low
+    nyam_c      := 1
+    nyam_rdy    := false
+    nyam_traded := false
 else if in_nyam and not nyam_rdy
     nyam_c += 1
     nyam_h  := math.max(nyam_h, high)
@@ -43,7 +66,11 @@ else if in_nyam and not nyam_rdy
         nyam_rdy := true
 
 if nypm_new
-    nypm_h := high, nypm_l := low, nypm_c := 1, nypm_rdy := false, nypm_traded := false
+    nypm_h      := high
+    nypm_l      := low
+    nypm_c      := 1
+    nypm_rdy    := false
+    nypm_traded := false
 else if in_nypm and not nypm_rdy
     nypm_c += 1
     nypm_h  := math.max(nypm_h, high)
@@ -52,7 +79,11 @@ else if in_nypm and not nypm_rdy
         nypm_rdy := true
 
 if lon_new
-    lon_h := high, lon_l := low, lon_c := 1, lon_rdy := false, lon_traded := false
+    lon_h      := high
+    lon_l      := low
+    lon_c      := 1
+    lon_rdy    := false
+    lon_traded := false
 else if in_lon and not lon_rdy
     lon_c += 1
     lon_h  := math.max(lon_h, high)
@@ -61,7 +92,11 @@ else if in_lon and not lon_rdy
         lon_rdy := true
 
 if asia_new
-    asia_h := high, asia_l := low, asia_c := 1, asia_rdy := false, asia_traded := false
+    asia_h      := high
+    asia_l      := low
+    asia_c      := 1
+    asia_rdy    := false
+    asia_traded := false
 else if in_asia and not asia_rdy
     asia_c += 1
     asia_h  := math.max(asia_h, high)
@@ -70,7 +105,6 @@ else if in_asia and not asia_rdy
         asia_rdy := true
 
 // ── Entries ───────────────────────────────────────────────────────────────────
-// close_all before new session entry — prevents pyramiding=0 blocking across overlapping sessions
 _ticks(rng, mult) => math.round(rng * mult / syminfo.mintick)
 
 if use_nyam and nyam_rdy and in_nyam and not nyam_traded
