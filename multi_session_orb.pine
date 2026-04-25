@@ -1,7 +1,6 @@
 //@version=6
 strategy("Multi-Session ORB", overlay=true,
-     default_qty_type=strategy.percent_of_equity, default_qty_value=5,
-     pyramiding=0, process_orders_on_close=false)
+     default_qty_type=strategy.percent_of_equity, default_qty_value=5, pyramiding=0)
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
 orb_min  = input.int(30,    "ORB Length (min)", minval=1, step=5)
@@ -28,14 +27,14 @@ lon_new  = in_lon  and not in_lon[1]
 asia_new = in_asia and not in_asia[1]
 
 // ── State vars ────────────────────────────────────────────────────────────────
-var float nyam_h = na, var float nyam_l = na, var int nyam_c = 0, var bool nyam_rdy = false, var bool nyam_done = false
-var float nypm_h = na, var float nypm_l = na, var int nypm_c = 0, var bool nypm_rdy = false, var bool nypm_done = false
-var float lon_h  = na, var float lon_l  = na, var int lon_c  = 0, var bool lon_rdy  = false, var bool lon_done  = false
-var float asia_h = na, var float asia_l = na, var int asia_c = 0, var bool asia_rdy = false, var bool asia_done = false
+var float nyam_h = na, var float nyam_l = na, var int nyam_c = 0, var bool nyam_rdy = false, var bool nyam_traded = false
+var float nypm_h = na, var float nypm_l = na, var int nypm_c = 0, var bool nypm_rdy = false, var bool nypm_traded = false
+var float lon_h  = na, var float lon_l  = na, var int lon_c  = 0, var bool lon_rdy  = false, var bool lon_traded  = false
+var float asia_h = na, var float asia_l = na, var int asia_c = 0, var bool asia_rdy = false, var bool asia_traded = false
 
 // ── Range building ────────────────────────────────────────────────────────────
 if nyam_new
-    nyam_h := high, nyam_l := low, nyam_c := 1, nyam_rdy := false, nyam_done := false
+    nyam_h := high, nyam_l := low, nyam_c := 1, nyam_rdy := false, nyam_traded := false
 else if in_nyam and not nyam_rdy
     nyam_c += 1
     nyam_h  := math.max(nyam_h, high)
@@ -44,7 +43,7 @@ else if in_nyam and not nyam_rdy
         nyam_rdy := true
 
 if nypm_new
-    nypm_h := high, nypm_l := low, nypm_c := 1, nypm_rdy := false, nypm_done := false
+    nypm_h := high, nypm_l := low, nypm_c := 1, nypm_rdy := false, nypm_traded := false
 else if in_nypm and not nypm_rdy
     nypm_c += 1
     nypm_h  := math.max(nypm_h, high)
@@ -53,7 +52,7 @@ else if in_nypm and not nypm_rdy
         nypm_rdy := true
 
 if lon_new
-    lon_h := high, lon_l := low, lon_c := 1, lon_rdy := false, lon_done := false
+    lon_h := high, lon_l := low, lon_c := 1, lon_rdy := false, lon_traded := false
 else if in_lon and not lon_rdy
     lon_c += 1
     lon_h  := math.max(lon_h, high)
@@ -62,7 +61,7 @@ else if in_lon and not lon_rdy
         lon_rdy := true
 
 if asia_new
-    asia_h := high, asia_l := low, asia_c := 1, asia_rdy := false, asia_done := false
+    asia_h := high, asia_l := low, asia_c := 1, asia_rdy := false, asia_traded := false
 else if in_asia and not asia_rdy
     asia_c += 1
     asia_h  := math.max(asia_h, high)
@@ -70,55 +69,52 @@ else if in_asia and not asia_rdy
     if asia_c >= orb_bars
         asia_rdy := true
 
-// ── Place stop orders once range is ready (one-shot per session) ───────────────
-// Stop orders fill intrabar when price hits the level — realistic ORB entry
+// ── Entries: check each bar for breakout ──────────────────────────────────────
 _ticks(rng, mult) => math.round(rng * mult / syminfo.mintick)
 
-if use_nyam and nyam_rdy and in_nyam and not nyam_done
+if use_nyam and nyam_rdy and in_nyam and not nyam_traded
     _r = nyam_h - nyam_l
-    strategy.entry("NYAM_L", strategy.long,  stop=nyam_h)
-    strategy.entry("NYAM_S", strategy.short, stop=nyam_l)
-    strategy.exit("NYAM_Lx", "NYAM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    strategy.exit("NYAM_Sx", "NYAM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    nyam_done := true
+    if high > nyam_h
+        strategy.entry("NYAM_L", strategy.long)
+        strategy.exit("NYAM_Lx", "NYAM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nyam_traded := true
+    else if low < nyam_l
+        strategy.entry("NYAM_S", strategy.short)
+        strategy.exit("NYAM_Sx", "NYAM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nyam_traded := true
 
-if use_nypm and nypm_rdy and in_nypm and not nypm_done
+if use_nypm and nypm_rdy and in_nypm and not nypm_traded
     _r = nypm_h - nypm_l
-    strategy.entry("NYPM_L", strategy.long,  stop=nypm_h)
-    strategy.entry("NYPM_S", strategy.short, stop=nypm_l)
-    strategy.exit("NYPM_Lx", "NYPM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    strategy.exit("NYPM_Sx", "NYPM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    nypm_done := true
+    if high > nypm_h
+        strategy.entry("NYPM_L", strategy.long)
+        strategy.exit("NYPM_Lx", "NYPM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nypm_traded := true
+    else if low < nypm_l
+        strategy.entry("NYPM_S", strategy.short)
+        strategy.exit("NYPM_Sx", "NYPM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nypm_traded := true
 
-if use_lon and lon_rdy and in_lon and not lon_done
+if use_lon and lon_rdy and in_lon and not lon_traded
     _r = lon_h - lon_l
-    strategy.entry("LON_L", strategy.long,  stop=lon_h)
-    strategy.entry("LON_S", strategy.short, stop=lon_l)
-    strategy.exit("LON_Lx", "LON_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    strategy.exit("LON_Sx", "LON_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    lon_done := true
+    if high > lon_h
+        strategy.entry("LON_L", strategy.long)
+        strategy.exit("LON_Lx", "LON_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        lon_traded := true
+    else if low < lon_l
+        strategy.entry("LON_S", strategy.short)
+        strategy.exit("LON_Sx", "LON_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        lon_traded := true
 
-if use_asia and asia_rdy and in_asia and not asia_done
+if use_asia and asia_rdy and in_asia and not asia_traded
     _r = asia_h - asia_l
-    strategy.entry("ASIA_L", strategy.long,  stop=asia_h)
-    strategy.entry("ASIA_S", strategy.short, stop=asia_l)
-    strategy.exit("ASIA_Lx", "ASIA_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    strategy.exit("ASIA_Sx", "ASIA_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
-    asia_done := true
-
-// Cancel pending orders when session ends
-if not in_nyam and in_nyam[1]
-    strategy.cancel("NYAM_L")
-    strategy.cancel("NYAM_S")
-if not in_nypm and in_nypm[1]
-    strategy.cancel("NYPM_L")
-    strategy.cancel("NYPM_S")
-if not in_lon and in_lon[1]
-    strategy.cancel("LON_L")
-    strategy.cancel("LON_S")
-if not in_asia and in_asia[1]
-    strategy.cancel("ASIA_L")
-    strategy.cancel("ASIA_S")
+    if high > asia_h
+        strategy.entry("ASIA_L", strategy.long)
+        strategy.exit("ASIA_Lx", "ASIA_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        asia_traded := true
+    else if low < asia_l
+        strategy.entry("ASIA_S", strategy.short)
+        strategy.exit("ASIA_Sx", "ASIA_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        asia_traded := true
 
 // ── Range lines ───────────────────────────────────────────────────────────────
 plot(use_nyam and nyam_rdy ? nyam_h : na, "NYAM H", color.blue,   1, plot.style_linebr)
@@ -135,16 +131,3 @@ bgcolor(use_nyam and nyam_c > 0 and nyam_c < orb_bars ? color.new(color.blue,   
 bgcolor(use_nypm and nypm_c > 0 and nypm_c < orb_bars ? color.new(color.orange, 85) : na, title="NYPM ORB zone")
 bgcolor(use_lon  and lon_c  > 0 and lon_c  < orb_bars ? color.new(color.green,  85) : na, title="LON ORB zone")
 bgcolor(use_asia and asia_c > 0 and asia_c < orb_bars ? color.new(color.purple, 85) : na, title="ASIA ORB zone")
-
-// ── Alerts (for live webhook delivery) ────────────────────────────────────────
-_amsg(sess, dir, h, l) =>
-    '{"symbol":"' + syminfo.ticker + '","session":"' + sess + '","dir":"' + dir + '","orb_h":' + str.tostring(h) + ',"orb_l":' + str.tostring(l) + ',"bar_time":' + str.tostring(time) + ',"tf":"' + timeframe.period + '"}'
-
-if use_nyam and nyam_rdy and in_nyam and not nyam_done[1]
-    alert(_amsg("NYAM", "breakout_armed", nyam_h, nyam_l), alert.freq_once_per_bar)
-if use_lon and lon_rdy and in_lon and not lon_done[1]
-    alert(_amsg("LON", "breakout_armed", lon_h, lon_l), alert.freq_once_per_bar)
-if use_nypm and nypm_rdy and in_nypm and not nypm_done[1]
-    alert(_amsg("NYPM", "breakout_armed", nypm_h, nypm_l), alert.freq_once_per_bar)
-if use_asia and asia_rdy and in_asia and not asia_done[1]
-    alert(_amsg("ASIA", "breakout_armed", asia_h, asia_l), alert.freq_once_per_bar)
