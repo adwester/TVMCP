@@ -138,9 +138,7 @@ bgcolor(use_asia and asia_c > 0 and asia_c < orb_bars ? color.new(color.purple, 
 
 // ── Alerts (for live webhook delivery) ────────────────────────────────────────
 _amsg(sess, dir, h, l) =>
-    '{"symbol":"' + syminfo.ticker + '","session":"' + sess + '","dir":"' + dir +
-    '","orb_h":' + str.tostring(h) + ',"orb_l":' + str.tostring(l) +
-    ',"bar_time":' + str.tostring(time) + ',"tf":"' + timeframe.period + '"}'
+    '{"symbol":"' + syminfo.ticker + '","session":"' + sess + '","dir":"' + dir + '","orb_h":' + str.tostring(h) + ',"orb_l":' + str.tostring(l) + ',"bar_time":' + str.tostring(time) + ',"tf":"' + timeframe.period + '"}'
 
 if use_nyam and nyam_rdy and in_nyam and not nyam_done[1]
     alert(_amsg("NYAM", "breakout_armed", nyam_h, nyam_l), alert.freq_once_per_bar)
