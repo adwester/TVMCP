@@ -1,0 +1,197 @@
+//@version=6
+strategy("Multi-Session ORB", overlay=true,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=5, pyramiding=0)
+
+// ── Inputs ──────────────────────────────────────────────────────────────────
+orb_min  = input.int(30,    "ORB Length (min)", minval=1, step=5)
+use_nyam = input.bool(true, "NY AM  (9:30 ET)")
+use_nypm = input.bool(true, "NY PM  (2:00 ET)")
+use_lon  = input.bool(true, "London (3:00 ET)")
+use_asia = input.bool(true, "Asia   (8:00 PM ET)")
+stop_x   = input.float(1.0, "Stop  × ORB Range", step=0.25)
+tgt_x    = input.float(2.0, "Target × ORB Range", step=0.25)
+
+// ── Session detection ────────────────────────────────────────────────────────
+// CRITICAL: use timeframe.period (not "1") so session detection works on any TF
+TZ       = "America/New_York"
+tf       = timeframe.period
+orb_bars = math.max(1, int(orb_min / timeframe.multiplier))
+
+in_nyam  = not na(time(tf, "0930-1600:23456", TZ))
+in_nypm  = not na(time(tf, "1400-1600:23456", TZ))
+in_lon   = not na(time(tf, "0300-1200:23456", TZ))
+in_asia  = not na(time(tf, "2000-0400:23456", TZ))
+
+nyam_new = in_nyam and not in_nyam[1]
+nypm_new = in_nypm and not in_nypm[1]
+lon_new  = in_lon  and not in_lon[1]
+asia_new = in_asia and not in_asia[1]
+
+// ── State vars ───────────────────────────────────────────────────────────────
+var float nyam_h = na, var float nyam_l = na, var int nyam_c = 0, var bool nyam_rdy = false
+var bool nyam_lt = false, var bool nyam_st = false
+
+var float nypm_h = na, var float nypm_l = na, var int nypm_c = 0, var bool nypm_rdy = false
+var bool nypm_lt = false, var bool nypm_st = false
+
+var float lon_h  = na, var float lon_l  = na, var int lon_c  = 0, var bool lon_rdy  = false
+var bool lon_lt  = false, var bool lon_st  = false
+
+var float asia_h = na, var float asia_l = na, var int asia_c = 0, var bool asia_rdy = false
+var bool asia_lt = false, var bool asia_st = false
+
+// ── Range building ───────────────────────────────────────────────────────────
+// NY AM
+if nyam_new
+    nyam_h := high, nyam_l := low, nyam_c := 1, nyam_rdy := false, nyam_lt := false, nyam_st := false
+else if in_nyam and not nyam_rdy
+    nyam_c += 1
+    nyam_h  := math.max(nyam_h, high)
+    nyam_l  := math.min(nyam_l, low)
+    if nyam_c >= orb_bars
+        nyam_rdy := true
+
+// NY PM
+if nypm_new
+    nypm_h := high, nypm_l := low, nypm_c := 1, nypm_rdy := false, nypm_lt := false, nypm_st := false
+else if in_nypm and not nypm_rdy
+    nypm_c += 1
+    nypm_h  := math.max(nypm_h, high)
+    nypm_l  := math.min(nypm_l, low)
+    if nypm_c >= orb_bars
+        nypm_rdy := true
+
+// London
+if lon_new
+    lon_h := high, lon_l := low, lon_c := 1, lon_rdy := false, lon_lt := false, lon_st := false
+else if in_lon and not lon_rdy
+    lon_c += 1
+    lon_h  := math.max(lon_h, high)
+    lon_l  := math.min(lon_l, low)
+    if lon_c >= orb_bars
+        lon_rdy := true
+
+// Asia
+if asia_new
+    asia_h := high, asia_l := low, asia_c := 1, asia_rdy := false, asia_lt := false, asia_st := false
+else if in_asia and not asia_rdy
+    asia_c += 1
+    asia_h  := math.max(asia_h, high)
+    asia_l  := math.min(asia_l, low)
+    if asia_c >= orb_bars
+        asia_rdy := true
+
+// ── Entry signals ────────────────────────────────────────────────────────────
+nyam_long_sig  = use_nyam and nyam_rdy and in_nyam and not nyam_lt and close > nyam_h
+nyam_short_sig = use_nyam and nyam_rdy and in_nyam and not nyam_st and close < nyam_l
+
+nypm_long_sig  = use_nypm and nypm_rdy and in_nypm and not nypm_lt and close > nypm_h
+nypm_short_sig = use_nypm and nypm_rdy and in_nypm and not nypm_st and close < nypm_l
+
+lon_long_sig   = use_lon  and lon_rdy  and in_lon  and not lon_lt  and close > lon_h
+lon_short_sig  = use_lon  and lon_rdy  and in_lon  and not lon_st  and close < lon_l
+
+asia_long_sig  = use_asia and asia_rdy and in_asia and not asia_lt and close > asia_h
+asia_short_sig = use_asia and asia_rdy and in_asia and not asia_st and close < asia_l
+
+// ── Entries + exits ──────────────────────────────────────────────────────────
+if nyam_long_sig
+    _r = nyam_h - nyam_l
+    strategy.entry("NYAM_L", strategy.long)
+    strategy.exit("NYAM_Lx", "NYAM_L", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    nyam_lt := true
+if nyam_short_sig
+    _r = nyam_h - nyam_l
+    strategy.entry("NYAM_S", strategy.short)
+    strategy.exit("NYAM_Sx", "NYAM_S", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    nyam_st := true
+
+if nypm_long_sig
+    _r = nypm_h - nypm_l
+    strategy.entry("NYPM_L", strategy.long)
+    strategy.exit("NYPM_Lx", "NYPM_L", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    nypm_lt := true
+if nypm_short_sig
+    _r = nypm_h - nypm_l
+    strategy.entry("NYPM_S", strategy.short)
+    strategy.exit("NYPM_Sx", "NYPM_S", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    nypm_st := true
+
+if lon_long_sig
+    _r = lon_h - lon_l
+    strategy.entry("LON_L", strategy.long)
+    strategy.exit("LON_Lx", "LON_L", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    lon_lt := true
+if lon_short_sig
+    _r = lon_h - lon_l
+    strategy.entry("LON_S", strategy.short)
+    strategy.exit("LON_Sx", "LON_S", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    lon_st := true
+
+if asia_long_sig
+    _r = asia_h - asia_l
+    strategy.entry("ASIA_L", strategy.long)
+    strategy.exit("ASIA_Lx", "ASIA_L", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    asia_lt := true
+if asia_short_sig
+    _r = asia_h - asia_l
+    strategy.entry("ASIA_S", strategy.short)
+    strategy.exit("ASIA_Sx", "ASIA_S", profit=math.round(_r*tgt_x/syminfo.mintick), loss=math.round(_r*stop_x/syminfo.mintick))
+    asia_st := true
+
+// ── Range lines ──────────────────────────────────────────────────────────────
+plot(use_nyam and nyam_rdy ? nyam_h : na, "NYAM H", color.blue,  1, plot.style_linebr)
+plot(use_nyam and nyam_rdy ? nyam_l : na, "NYAM L", color.blue,  1, plot.style_linebr)
+plot(use_nypm and nypm_rdy ? nypm_h : na, "NYPM H", color.orange,1, plot.style_linebr)
+plot(use_nypm and nypm_rdy ? nypm_l : na, "NYPM L", color.orange,1, plot.style_linebr)
+plot(use_lon  and lon_rdy  ? lon_h  : na, "LON H",  color.green, 1, plot.style_linebr)
+plot(use_lon  and lon_rdy  ? lon_l  : na, "LON L",  color.green, 1, plot.style_linebr)
+plot(use_asia and asia_rdy ? asia_h : na, "ASIA H", color.purple,1, plot.style_linebr)
+plot(use_asia and asia_rdy ? asia_l : na, "ASIA L", color.purple,1, plot.style_linebr)
+
+// ── ORB zone shading ─────────────────────────────────────────────────────────
+bgcolor(use_nyam and nyam_c > 0 and nyam_c < orb_bars ? color.new(color.blue,   85) : na, title="NYAM ORB zone")
+bgcolor(use_nypm and nypm_c > 0 and nypm_c < orb_bars ? color.new(color.orange, 85) : na, title="NYPM ORB zone")
+bgcolor(use_lon  and lon_c  > 0 and lon_c  < orb_bars ? color.new(color.green,  85) : na, title="LON ORB zone")
+bgcolor(use_asia and asia_c > 0 and asia_c < orb_bars ? color.new(color.purple, 85) : na, title="ASIA ORB zone")
+
+// ── Debug signal markers ──────────────────────────────────────────────────────
+plotshape(nyam_long_sig,  "NYAM L",  shape.triangleup,   location.belowbar, color.blue,   size=size.tiny)
+plotshape(nyam_short_sig, "NYAM S",  shape.triangledown, location.abovebar, color.blue,   size=size.tiny)
+plotshape(nypm_long_sig,  "NYPM L",  shape.triangleup,   location.belowbar, color.orange, size=size.tiny)
+plotshape(nypm_short_sig, "NYPM S",  shape.triangledown, location.abovebar, color.orange, size=size.tiny)
+plotshape(lon_long_sig,   "LON L",   shape.triangleup,   location.belowbar, color.green,  size=size.tiny)
+plotshape(lon_short_sig,  "LON S",   shape.triangledown, location.abovebar, color.green,  size=size.tiny)
+plotshape(asia_long_sig,  "ASIA L",  shape.triangleup,   location.belowbar, color.purple, size=size.tiny)
+plotshape(asia_short_sig, "ASIA S",  shape.triangledown, location.abovebar, color.purple, size=size.tiny)
+
+// ── Webhook alerts ────────────────────────────────────────────────────────────
+_orb_dir(long_sig, short_sig) =>
+    long_sig ? "long" : short_sig ? "short" : ""
+
+_alert(session, dir, h, l, entry) =>
+    '{"symbol":"' + syminfo.ticker +
+    '","session":"' + session +
+    '","dir":"'    + dir +
+    '","entry":'   + str.tostring(entry) +
+    '","orb_h":'   + str.tostring(h) +
+    ',"orb_l":'    + str.tostring(l) +
+    ',"bar_time":' + str.tostring(time) +
+    ',"tf":"'      + timeframe.period + '"}'
+
+if nyam_long_sig
+    alert(_alert("NYAM", "long",  nyam_h, nyam_l, close), alert.freq_once_per_bar)
+if nyam_short_sig
+    alert(_alert("NYAM", "short", nyam_h, nyam_l, close), alert.freq_once_per_bar)
+if nypm_long_sig
+    alert(_alert("NYPM", "long",  nypm_h, nypm_l, close), alert.freq_once_per_bar)
+if nypm_short_sig
+    alert(_alert("NYPM", "short", nypm_h, nypm_l, close), alert.freq_once_per_bar)
+if lon_long_sig
+    alert(_alert("LON",  "long",  lon_h,  lon_l,  close), alert.freq_once_per_bar)
+if lon_short_sig
+    alert(_alert("LON",  "short", lon_h,  lon_l,  close), alert.freq_once_per_bar)
+if asia_long_sig
+    alert(_alert("ASIA", "long",  asia_h, asia_l, close), alert.freq_once_per_bar)
+if asia_short_sig
+    alert(_alert("ASIA", "short", asia_h, asia_l, close), alert.freq_once_per_bar)
