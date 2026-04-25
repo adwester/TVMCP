@@ -69,16 +69,19 @@ else if in_asia and not asia_rdy
     if asia_c >= orb_bars
         asia_rdy := true
 
-// ── Entries: check each bar for breakout ──────────────────────────────────────
+// ── Entries ───────────────────────────────────────────────────────────────────
+// close_all before new session entry — prevents pyramiding=0 blocking across overlapping sessions
 _ticks(rng, mult) => math.round(rng * mult / syminfo.mintick)
 
 if use_nyam and nyam_rdy and in_nyam and not nyam_traded
     _r = nyam_h - nyam_l
     if high > nyam_h
+        strategy.close_all()
         strategy.entry("NYAM_L", strategy.long)
         strategy.exit("NYAM_Lx", "NYAM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         nyam_traded := true
     else if low < nyam_l
+        strategy.close_all()
         strategy.entry("NYAM_S", strategy.short)
         strategy.exit("NYAM_Sx", "NYAM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         nyam_traded := true
@@ -86,10 +89,12 @@ if use_nyam and nyam_rdy and in_nyam and not nyam_traded
 if use_nypm and nypm_rdy and in_nypm and not nypm_traded
     _r = nypm_h - nypm_l
     if high > nypm_h
+        strategy.close_all()
         strategy.entry("NYPM_L", strategy.long)
         strategy.exit("NYPM_Lx", "NYPM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         nypm_traded := true
     else if low < nypm_l
+        strategy.close_all()
         strategy.entry("NYPM_S", strategy.short)
         strategy.exit("NYPM_Sx", "NYPM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         nypm_traded := true
@@ -97,10 +102,12 @@ if use_nypm and nypm_rdy and in_nypm and not nypm_traded
 if use_lon and lon_rdy and in_lon and not lon_traded
     _r = lon_h - lon_l
     if high > lon_h
+        strategy.close_all()
         strategy.entry("LON_L", strategy.long)
         strategy.exit("LON_Lx", "LON_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         lon_traded := true
     else if low < lon_l
+        strategy.close_all()
         strategy.entry("LON_S", strategy.short)
         strategy.exit("LON_Sx", "LON_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         lon_traded := true
@@ -108,10 +115,12 @@ if use_lon and lon_rdy and in_lon and not lon_traded
 if use_asia and asia_rdy and in_asia and not asia_traded
     _r = asia_h - asia_l
     if high > asia_h
+        strategy.close_all()
         strategy.entry("ASIA_L", strategy.long)
         strategy.exit("ASIA_Lx", "ASIA_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         asia_traded := true
     else if low < asia_l
+        strategy.close_all()
         strategy.entry("ASIA_S", strategy.short)
         strategy.exit("ASIA_Sx", "ASIA_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
         asia_traded := true

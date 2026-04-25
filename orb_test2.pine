@@ -1,0 +1,47 @@
+//@version=6
+strategy("ORB Test2 - NYAM Long Only", overlay=true, pyramiding=0)
+
+// NYAM only, long only, fixed exits
+// If 0 trades: high > nyam_h NEVER fires → data/session issue
+// If >0 trades: breakout condition works → problem was multi-session interference
+
+TZ = "America/New_York"
+tf = timeframe.period
+orb_bars = math.max(1, int(30 / timeframe.multiplier))
+
+in_nyam  = not na(time(tf, "0930-1600:23456", TZ))
+nyam_new = in_nyam and not in_nyam[1]
+
+var float nyam_h    = na
+var float nyam_l    = na
+var int   nyam_c    = 0
+var bool  nyam_rdy  = false
+var bool  nyam_done = false
+
+if nyam_new
+    nyam_h    := high
+    nyam_l    := low
+    nyam_c    := 1
+    nyam_rdy  := false
+    nyam_done := false
+else if in_nyam and not nyam_rdy
+    nyam_c += 1
+    nyam_h  := math.max(nyam_h, high)
+    nyam_l  := math.min(nyam_l, low)
+    if nyam_c >= orb_bars
+        nyam_rdy := true
+
+// Long breakout only — fixed 50 tick SL / 100 tick TP
+if nyam_rdy and in_nyam and not nyam_done
+    if high > nyam_h
+        strategy.entry("L", strategy.long)
+        strategy.exit("Lx", "L", profit=100, loss=50)
+        nyam_done := true
+
+// Close at session end
+if not in_nyam and in_nyam[1]
+    strategy.close("L")
+
+plot(nyam_rdy ? nyam_h : na, "H", color.blue, 1, plot.style_linebr)
+plot(nyam_rdy ? nyam_l : na, "L", color.red,  1, plot.style_linebr)
+bgcolor(nyam_c > 0 and nyam_c < orb_bars ? color.new(color.blue, 85) : na)
