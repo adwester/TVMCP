@@ -1,0 +1,54 @@
+//@version=6
+strategy("ORB Test5", overlay=true, pyramiding=0)
+
+// orb_test4 + _ticks() exits
+// If 0 trades: _ticks() returning bad value (0, negative, or na)
+// If ~39 trades: _ticks() fine, problem is multi-session var declarations
+
+use_nyam = input.bool(true, "NY AM (9:30 ET)")
+stop_x   = input.float(1.0, "Stop ×",   step=0.25)
+tgt_x    = input.float(2.0, "Target ×", step=0.25)
+
+TZ = "America/New_York"
+tf = timeframe.period
+orb_bars = math.max(1, int(30 / timeframe.multiplier))
+
+in_nyam  = not na(time(tf, "0930-1600:23456", TZ))
+nyam_new = in_nyam and not in_nyam[1]
+
+var float nyam_h    = na
+var float nyam_l    = na
+var int   nyam_c    = 0
+var bool  nyam_rdy  = false
+var bool  nyam_done = false
+
+if nyam_new
+    nyam_h    := high
+    nyam_l    := low
+    nyam_c    := 1
+    nyam_rdy  := false
+    nyam_done := false
+else if in_nyam and not nyam_rdy
+    nyam_c += 1
+    nyam_h  := math.max(nyam_h, high)
+    nyam_l  := math.min(nyam_l, low)
+    if nyam_c >= orb_bars
+        nyam_rdy := true
+
+_ticks(rng, mult) => math.round(rng * mult / syminfo.mintick)
+
+if use_nyam and nyam_rdy and in_nyam and not nyam_done
+    _r = nyam_h - nyam_l
+    if high > nyam_h
+        strategy.close_all()
+        strategy.entry("NYAM_L", strategy.long)
+        strategy.exit("NYAM_Lx", "NYAM_L", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nyam_done := true
+    else if low < nyam_l
+        strategy.close_all()
+        strategy.entry("NYAM_S", strategy.short)
+        strategy.exit("NYAM_Sx", "NYAM_S", profit=_ticks(_r, tgt_x), loss=_ticks(_r, stop_x))
+        nyam_done := true
+
+plot(nyam_rdy ? nyam_h : na, "H", color.blue, 1, plot.style_linebr)
+plot(nyam_rdy ? nyam_l : na, "L", color.red,  1, plot.style_linebr)
